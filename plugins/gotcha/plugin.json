@@ -1,0 +1,5 @@
+{
+  "name": "gotcha",
+  "description": "Record footguns, edge cases, and non-obvious behaviors to project documentation",
+  "version": "1.0.0"
+}

@@ -1,0 +1,5 @@
+{
+  "name": "refactor-pass",
+  "description": "Focused simplification pass on recent changes - dead code removal, logic cleanup, verified by tests",
+  "version": "1.0.0"
+}

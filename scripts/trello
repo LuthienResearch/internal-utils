@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""Trello CLI - lightweight wrapper around the Trello REST API.
+
+Set TRELLO_API_KEY and TRELLO_TOKEN below, or export them as environment variables.
+Get your API key at: https://trello.com/power-ups/admin
+Generate a token at: https://trello.com/1/authorize?expiration=never&scope=read,write&response_type=token&key=YOUR_API_KEY
+"""
+
+import argparse
+import json
+import os
+import sys
+import urllib.parse
+import urllib.request
+
+# Fill in your Trello credentials here, or set as environment variables
+TRELLO_API_KEY = ""
+TRELLO_TOKEN = ""
+
+
+def get_credentials():
+    key = os.environ.get("TRELLO_API_KEY") or TRELLO_API_KEY
+    token = os.environ.get("TRELLO_TOKEN") or TRELLO_TOKEN
+    if not key or not token:
+        print(
+            "Error: TRELLO_API_KEY and TRELLO_TOKEN must be set.\n"
+            "Either edit this file or export them as environment variables.\n\n"
+            "Get your API key at: https://trello.com/power-ups/admin\n"
+            "Generate a token at: https://trello.com/1/authorize?expiration=never"
+            "&scope=read,write&response_type=token&key=YOUR_API_KEY",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return key, token
+
+
+KEY, TOKEN = get_credentials()
+
+
+def api(method, path, data=None):
+    """Make a Trello API call and return parsed JSON."""
+    url = f"https://api.trello.com/1{path}"
+    sep = "&" if "?" in url else "?"
+    url += f"{sep}key={KEY}&token={TOKEN}"
+
+    body = None
+    if data and method in ("POST", "PUT"):
+        body = urllib.parse.urlencode(data).encode()
+
+    req = urllib.request.Request(url, data=body, method=method)
+    try:
+        resp = urllib.request.urlopen(req)
+        return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        print(f"API error {e.code}: {e.read().decode()}", file=sys.stderr)
+        sys.exit(1)
+
+
+def resolve_board(name_or_id):
+    """Resolve a board name (substring match) or ID to a board ID."""
+    if len(name_or_id) == 24 and name_or_id.isalnum():
+        return name_or_id
+    boards = api("GET", "/members/me/boards?fields=name,id")
+    exact = [b for b in boards if name_or_id.lower() == b["name"].lower()]
+    if len(exact) == 1:
+        return exact[0]["id"]
+    matches = [b for b in boards if name_or_id.lower() in b["name"].lower()]
+    if len(matches) == 1:
+        return matches[0]["id"]
+    if len(matches) == 0:
+        print(f"No board matching '{name_or_id}'", file=sys.stderr)
+        sys.exit(1)
+    print(f"Ambiguous board name '{name_or_id}':", file=sys.stderr)
+    for m in matches:
+        print(f"  {m['id']}  {m['name']}", file=sys.stderr)
+    sys.exit(1)
+
+
+def fmt_labels(labels):
+    """Format label list for display."""
+    if not labels:
+        return ""
+    return " [" + ", ".join(l.get("name", l.get("color", "?")) for l in labels) + "]"
+
+
+def cmd_boards(args):
+    boards = api("GET", "/members/me/boards?fields=name,id,closed")
+    boards = [b for b in boards if not b.get("closed")]
+    for b in boards:
+        print(f"{b['id']}  {b['name']}")
+
+
+def cmd_lists(args):
+    board_id = resolve_board(args.board)
+    lists = api("GET", f"/boards/{board_id}/lists?fields=name,id")
+    for lst in lists:
+        print(f"{lst['id']}  {lst['name']}")
+
+
+def cmd_labels(args):
+    board_id = resolve_board(args.board)
+    labels = api("GET", f"/boards/{board_id}/labels?fields=name,id,color")
+    for l in labels:
+        name = l.get("name") or "(unnamed)"
+        print(f"{l['id']}  {l.get('color', ''):12s}  {name}")
+
+
+def cmd_cards(args):
+    target = args.list_or_board
+    target_id = target if len(target) == 24 and target.isalnum() else resolve_board(target)
+
+    try:
+        req = urllib.request.Request(
+            f"https://api.trello.com/1/lists/{target_id}/cards?fields=name,id,idList,labels,idMembers&key={KEY}&token={TOKEN}"
+        )
+        resp = urllib.request.urlopen(req)
+        cards = json.loads(resp.read())
+    except urllib.error.HTTPError:
+        cards = api("GET", f"/boards/{target_id}/cards?fields=name,id,idList,labels,idMembers")
+
+    if args.label:
+        label_filter = args.label.lower()
+        cards = [c for c in cards if any(label_filter in (l.get("name") or "").lower() for l in c.get("labels", []))]
+
+    for c in cards:
+        labels = fmt_labels(c.get("labels", []))
+        print(f"{c['id']}  {c['name']}{labels}")
+
+    if not cards:
+        print("(no cards)")
+
+
+def cmd_card(args):
+    card = api("GET", f"/cards/{args.card_id}?fields=name,desc,idList,labels,idMembers,shortUrl,closed")
+    print(f"Name:    {card['name']}")
+    print(f"URL:     {card['shortUrl']}")
+    print(f"List:    {card['idList']}")
+    print(f"Labels:  {fmt_labels(card.get('labels', []))}")
+    print(f"Members: {', '.join(card.get('idMembers', [])) or '(none)'}")
+    if card.get("desc"):
+        print(f"\n{card['desc']}")
+
+
+def cmd_create(args):
+    data = {"idList": args.list_id, "name": args.name, "pos": "bottom"}
+    if args.desc:
+        data["desc"] = args.desc
+    if args.labels:
+        data["idLabels"] = args.labels
+    if args.member:
+        data["idMembers"] = args.member
+
+    card = api("POST", "/cards", data)
+    print(f"Created: {card['shortUrl']}  {card['name']}")
+
+
+def cmd_move(args):
+    card = api("PUT", f"/cards/{args.card_id}", {"idList": args.list_id})
+    print(f"Moved '{card['name']}' to list {args.list_id}")
+
+
+def cmd_assign(args):
+    card = api("PUT", f"/cards/{args.card_id}", {"idMembers": args.member_id})
+    print(f"Assigned '{card['name']}' to {args.member_id}")
+
+
+def cmd_label(args):
+    api("POST", f"/cards/{args.card_id}/idLabels", {"value": args.label_id})
+    print(f"Added label {args.label_id} to card {args.card_id}")
+
+
+def cmd_comment(args):
+    api("POST", f"/cards/{args.card_id}/actions/comments", {"text": args.text})
+    print(f"Comment added to {args.card_id}")
+
+
+def cmd_rename(args):
+    card = api("PUT", f"/cards/{args.card_id}", {"name": args.name})
+    print(f"Renamed to: {card['name']}")
+
+
+def cmd_archive(args):
+    card = api("PUT", f"/cards/{args.card_id}", {"closed": "true"})
+    print(f"Archived: {card['name']}")
+
+
+def cmd_search(args):
+    board_id = resolve_board(args.board)
+    query = urllib.parse.quote(args.query)
+    results = api("GET", f"/search?query={query}&idBoards={board_id}&modelTypes=cards&cards_fields=name,id,labels,shortUrl&cards_limit=20")
+    cards = results.get("cards", [])
+    for c in cards:
+        labels = fmt_labels(c.get("labels", []))
+        print(f"{c['id']}  {c['name']}{labels}")
+    if not cards:
+        print("(no results)")
+
+
+def cmd_me(args):
+    member = api("GET", "/members/me?fields=id,fullName,username")
+    print(f"{member['id']}  {member['username']}  ({member['fullName']})")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Trello CLI", prog="trello")
+    sub = parser.add_subparsers(dest="command")
+
+    sub.add_parser("boards", help="List your boards")
+    sub.add_parser("me", help="Show your member info")
+
+    p = sub.add_parser("lists", help="List lists on a board")
+    p.add_argument("board", help="Board ID or name substring")
+
+    p = sub.add_parser("labels", help="List labels on a board")
+    p.add_argument("board", help="Board ID or name substring")
+
+    p = sub.add_parser("cards", help="List cards in a list or board")
+    p.add_argument("list_or_board", help="List ID or board name/ID")
+    p.add_argument("-l", "--label", help="Filter by label name (substring)")
+
+    p = sub.add_parser("card", help="Show card details")
+    p.add_argument("card_id", help="Card ID")
+
+    p = sub.add_parser("create", help="Create a card")
+    p.add_argument("list_id", help="List ID to create card in")
+    p.add_argument("name", help="Card title")
+    p.add_argument("-d", "--desc", help="Card description")
+    p.add_argument("-l", "--labels", help="Comma-separated label IDs")
+    p.add_argument("-m", "--member", help="Member ID to assign")
+
+    p = sub.add_parser("move", help="Move a card to a list")
+    p.add_argument("card_id")
+    p.add_argument("list_id")
+
+    p = sub.add_parser("assign", help="Assign a card to a member")
+    p.add_argument("card_id")
+    p.add_argument("member_id")
+
+    p = sub.add_parser("label", help="Add a label to a card")
+    p.add_argument("card_id")
+    p.add_argument("label_id")
+
+    p = sub.add_parser("comment", help="Add a comment to a card")
+    p.add_argument("card_id")
+    p.add_argument("text")
+
+    p = sub.add_parser("rename", help="Rename a card")
+    p.add_argument("card_id")
+    p.add_argument("name", help="New card title")
+
+    p = sub.add_parser("archive", help="Archive a card")
+    p.add_argument("card_id")
+
+    p = sub.add_parser("search", help="Search cards on a board")
+    p.add_argument("board", help="Board name/ID")
+    p.add_argument("query", help="Search text")
+
+    args = parser.parse_args()
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
+    commands = {
+        "boards": cmd_boards, "lists": cmd_lists, "labels": cmd_labels,
+        "cards": cmd_cards, "card": cmd_card, "create": cmd_create,
+        "move": cmd_move, "assign": cmd_assign, "label": cmd_label,
+        "comment": cmd_comment, "rename": cmd_rename, "archive": cmd_archive,
+        "search": cmd_search, "me": cmd_me,
+    }
+    commands[args.command](args)
+
+
+if __name__ == "__main__":
+    main()

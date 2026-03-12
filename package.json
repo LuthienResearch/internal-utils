@@ -1,0 +1,32 @@
+{
+  "name": "luthien-internal-utils",
+  "version": "0.1.0",
+  "description": "Dev utilities and Claude Code plugin marketplace for the Luthien team",
+  "type": "module",
+  "bin": {
+    "luthien-internal-utils": "./dist/wizard.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/wizard.js"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.0.0",
+    "chalk": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  },
+  "files": [
+    "dist",
+    "plugins",
+    "scripts",
+    "mcps"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LuthienResearch/internal-utils.git"
+  },
+  "license": "MIT"
+}
