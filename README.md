@@ -1,33 +1,27 @@
 # Luthien Internal Utils
 
-Dev utilities and Claude Code plugin marketplace for the Luthien team.
-
-## Quick Start
-
 ```bash
 npx luthien-internal-utils
 ```
 
-This runs an interactive wizard that lets you install:
+Interactive setup wizard for Luthien dev tools. Walks you through installing Claude Code plugins, MCP servers, and CLI utilities — each item is optional.
 
-- **Claude Code plugins** — context7, slack, gotcha, refactor-pass, trello, luthien-meta
-- **MCP servers** — Seattle AI Safety Slack
-- **CLI tools** — Trello CLI
+## What Gets Installed
 
-Each item is optional — you choose what to install.
+### Luthien CLI
 
-## What's Included
+Installs the `luthien` CLI via pipx (`pipx install luthien-cli`) and optionally runs `luthien onboard` to set up the local AI Control gateway. If already installed, checks gateway health and offers to re-run onboarding if it's not running.
 
-### Plugins
+### Claude Code Plugins
 
-| Plugin | Description |
-|--------|-------------|
-| `context7` | Query library documentation and code examples |
-| `slack` | Search, read, and send Slack messages |
-| `gotcha` | Record footguns, edge cases, and non-obvious behaviors |
-| `refactor-pass` | Focused code cleanup with test verification |
-| `trello` | Manage Trello boards, lists, and cards |
-| `luthien-meta` | Overview of Luthien tools (`/luthien` command) |
+| Plugin | Source | Description |
+|--------|--------|-------------|
+| `context7` | official | Query library documentation and code examples |
+| `slack` | official | Search, read, and send Slack messages |
+| `gotcha` | this repo | Record footguns, edge cases, and non-obvious behaviors |
+| `refactor-pass` | this repo | Focused code cleanup with test verification |
+| `trello` | this repo | Manage Trello boards, lists, and cards |
+| `luthien-meta` | this repo | Overview of all Luthien tools (`/luthien` command) |
 
 ### MCP Servers
 
@@ -39,4 +33,22 @@ Each item is optional — you choose what to install.
 
 ## After Setup
 
-Run `/luthien` in Claude Code for an overview of all available tools and conventions.
+Run `/luthien` in Claude Code for an overview of available tools and conventions.
+
+## Development
+
+### Updating the wizard
+
+```bash
+# Edit source in src/, then:
+npm run build
+npm publish --access public
+```
+
+### Adding a plugin
+
+Create a directory under `plugins/` with a `plugin.json` and skills/commands. See existing plugins for the structure. Publish a new version after adding.
+
+## License
+
+[MIT](LICENSE)
