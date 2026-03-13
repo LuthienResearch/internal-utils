@@ -37,13 +37,13 @@ Run `/luthien` in Claude Code for an overview of available tools and conventions
 
 ## Development
 
-### Updating the wizard
+### Publishing
 
 ```bash
-# Edit source in src/, then:
-npm run build
-npm publish --access public
+./scripts/publish.sh
 ```
+
+Auto-bumps the patch version if it matches the current published version, builds, and publishes.
 
 ### Adding a plugin
 
