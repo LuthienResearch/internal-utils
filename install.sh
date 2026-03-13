@@ -2,10 +2,10 @@
 set -euo pipefail
 
 # Luthien Internal Utils — one-liner installer
-# curl -fsSL https://raw.githubusercontent.com/LuthienResearch/internal-utils/main/install.sh | bash
+# bash <(curl -fsSL https://raw.githubusercontent.com/LuthienResearch/internal-utils/main/install.sh)
 
 if command -v npx &>/dev/null; then
-  exec npx luthien-internal-utils "$@" </dev/tty
+  exec npx luthien-internal-utils "$@"
 fi
 
 echo "npx not found. Installing Node.js..."
@@ -33,4 +33,4 @@ if ! command -v npx &>/dev/null; then
   exit 1
 fi
 
-exec npx luthien-internal-utils "$@" </dev/tty
+exec npx luthien-internal-utils "$@"

@@ -1,7 +1,7 @@
 # Luthien Internal Utils
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/LuthienResearch/internal-utils/main/install.sh | bash
+bash <(curl -fsSL https://raw.githubusercontent.com/LuthienResearch/internal-utils/main/install.sh)
 ```
 
 Or if you already have Node.js: `npx luthien-internal-utils`
