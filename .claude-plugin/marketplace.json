@@ -1,0 +1,47 @@
+{
+  "name": "luthien-internal-utils",
+  "owner": {
+    "name": "LuthienResearch"
+  },
+  "metadata": {
+    "description": "Dev utilities and Claude Code plugins for the Luthien team"
+  },
+  "plugins": [
+    {
+      "name": "gotcha",
+      "source": "./plugins/gotcha",
+      "description": "Record footguns, edge cases, and non-obvious behaviors to project documentation",
+      "version": "1.0.0",
+      "author": {
+        "name": "LuthienResearch"
+      }
+    },
+    {
+      "name": "refactor-pass",
+      "source": "./plugins/refactor-pass",
+      "description": "Focused code cleanup — dead code removal, logic straightening, parameter reduction",
+      "version": "1.0.0",
+      "author": {
+        "name": "LuthienResearch"
+      }
+    },
+    {
+      "name": "trello",
+      "source": "./plugins/trello",
+      "description": "Manage Trello boards, lists, and cards via the Trello REST API",
+      "version": "1.0.0",
+      "author": {
+        "name": "LuthienResearch"
+      }
+    },
+    {
+      "name": "luthien-meta",
+      "source": "./plugins/luthien-meta",
+      "description": "Overview of Luthien dev tools, /luthien command",
+      "version": "1.0.0",
+      "author": {
+        "name": "LuthienResearch"
+      }
+    }
+  ]
+}

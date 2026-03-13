@@ -1,8 +1,10 @@
 # Luthien Internal Utils
 
 ```bash
-npx luthien-internal-utils
+curl -fsSL https://raw.githubusercontent.com/LuthienResearch/internal-utils/main/install.sh | bash
 ```
+
+Or if you already have Node.js: `npx luthien-internal-utils`
 
 Interactive setup wizard for Luthien dev tools. Walks you through installing Claude Code plugins, MCP servers, and CLI utilities — each item is optional.
 

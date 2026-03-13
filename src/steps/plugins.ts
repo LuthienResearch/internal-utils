@@ -51,7 +51,7 @@ function ensureMarketplace(): boolean {
 
   info("Adding Luthien marketplace...");
   const result = runCommand(
-    `claude plugin marketplace add ${MARKETPLACE_SOURCE} --sparse plugins`
+    `claude plugin marketplace add ${MARKETPLACE_SOURCE}`
   );
   if (!result.ok) {
     warn(`Failed to add marketplace: ${result.output}`);
