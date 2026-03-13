@@ -1,6 +1,6 @@
 {
   "name": "luthien-internal-utils",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Dev utilities and Claude Code plugin marketplace for the Luthien team",
   "type": "module",
   "bin": {
