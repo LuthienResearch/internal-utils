@@ -42,6 +42,15 @@
       "author": {
         "name": "LuthienResearch"
       }
+    },
+    {
+      "name": "dev-pipeline",
+      "source": "./plugins/dev-pipeline",
+      "description": "End-to-end autonomous development pipeline — /dev for full automation, plus /start-ticket, /finish-ticket, /address-pr for mid-flow entry",
+      "version": "1.0.0",
+      "author": {
+        "name": "LuthienResearch"
+      }
     }
   ]
 }
