@@ -209,11 +209,11 @@ Invoke the `superpowers:requesting-code-review` skill to self-review the impleme
 
 ### 5.3 Run Dev Checks
 
-Execute the project's QC suite — `./scripts/dev_checks.sh` or equivalent (formatting, linting, type checking, tests, coverage). Check the project's CLAUDE.md or build docs for the right command if `dev_checks.sh` doesn't exist.
+Execute the project's QC suite — `"$(git rev-parse --show-toplevel)/scripts/dev_checks.sh"` or equivalent (formatting, linting, type checking, tests, coverage). Check the project's CLAUDE.md or build docs for the right command if `dev_checks.sh` doesn't exist.
 
-- Lint/format failures: fix, **commit and push** (`style: fix lint/formatting`), re-run
+The script auto-stages formatting fixes. After it passes:
+- If there are staged changes: **commit and push** (`style: fix lint/formatting`)
 - Test failures: investigate, fix, **commit and push**, re-run
-- Loop until clean
 
 ### 5.4 Smoke Test
 
@@ -223,11 +223,17 @@ This step catches integration issues that unit tests miss (e.g., import-time sid
 
 ### 5.5 E2E Tests
 
+**Before building any manual test setup**, search for existing test infrastructure:
+
+1. Check `tests/` for existing e2e fixtures and test files that cover the scenario
+2. Read any `CLAUDE.md` in the test directories — they document available test tiers and helpers
+3. Run existing e2e/integration tests that cover the changed code paths first
+4. Only build a manual setup if no existing infrastructure covers the scenario
+
 If the test strategy calls for formal e2e tests:
-- Check stack status (`docker compose ps`)
-- If not running, start it or ask user
-- Run targeted e2e tests first, broader suite if those pass
+- Run existing e2e suites that cover the scenario first (in-process, mock, or real backend)
 - Fix failures, **commit and push** fixes
+- For manual validation beyond existing tests: use existing test helpers (fixtures, scripts) rather than ad-hoc process management
 
 ---
 
@@ -235,7 +241,22 @@ If the test strategy calls for formal e2e tests:
 
 ### 6.1 Add Changelog Fragment
 
-Add a changelog fragment to `changelog.d/` following the project's fragment format (see `changelog.d/README.md`). Name it after the branch or feature handle. Include the PR number.
+Add a changelog fragment. If one doesn't already exist for this branch:
+
+1. Infer category from commit prefixes (`feat`→Features, `fix`→Fixes, `refactor`→Refactors, else→Chores & Docs)
+2. Get PR number: `gh pr view --json number --jq .number`
+3. Write `changelog.d/<branch-name>.md`:
+
+```markdown
+---
+category: <CATEGORY>
+pr: <PR_NUMBER>
+---
+
+**<Title>**: <summary from commits>
+```
+
+4. Commit and push.
 
 ### 6.2 Clear Dev Files
 
@@ -259,16 +280,60 @@ This stage runs autonomously until the PR is merged.
 
 ### 7.1 Set Up Background Monitor
 
-After pushing, set up a single background monitor that polls for **all three** blocking conditions:
-
-1. **CI failures** — `gh pr checks <number>`
-2. **New review comments** — compare comment count to baseline
-3. **Merge conflicts** — `gh pr view <number> --json mergeable --jq .mergeable`
+After pushing, launch a background monitor (`run_in_background: true` Bash command) that polls for CI failures, new comments, reviews, and merge conflicts:
 
 ```bash
-PREV_COMMENT_COUNT=$(gh pr view <number> --json comments --jq '.comments | length')
-# Poll every 60-120 seconds in background, report on any change
+PR=$(gh pr view --json number --jq .number)
+PREV_COMMENTS=$(gh pr view $PR --json comments --jq '.comments | length')
+PREV_REVIEWS=$(gh pr view $PR --json reviews --jq '.reviews | length')
+ITER=0; MAX_ITER=80
+
+while [ "$ITER" -lt "$MAX_ITER" ]; do
+    sleep 90
+    ITER=$((ITER + 1))
+
+    CI=$(gh pr checks $PR --json state --jq '.[].state' 2>/dev/null | sort -u)
+    if echo "$CI" | grep -q "FAILURE"; then
+        echo "ALERT:CI_FAILURE"
+        gh pr checks $PR
+        exit 0
+    fi
+
+    NEW_COMMENTS=$(gh pr view $PR --json comments --jq '.comments | length')
+    if [ "$NEW_COMMENTS" -gt "$PREV_COMMENTS" ]; then
+        echo "ALERT:NEW_COMMENTS"
+        gh pr view $PR --json comments --jq '.comments[-1] | "@\(.author.login): \(.body[0:500])"'
+        exit 0
+    fi
+
+    NEW_REVIEWS=$(gh pr view $PR --json reviews --jq '.reviews | length')
+    if [ "$NEW_REVIEWS" -gt "$PREV_REVIEWS" ]; then
+        echo "ALERT:NEW_REVIEW"
+        gh pr view $PR --json reviews --jq '.reviews[-1] | "@\(.author.login) (\(.state)): \(.body[0:500])"'
+        exit 0
+    fi
+
+    MERGEABLE=$(gh pr view $PR --json mergeable --jq '.mergeable')
+    if [ "$MERGEABLE" = "CONFLICTING" ]; then
+        echo "ALERT:MERGE_CONFLICT"
+        exit 0
+    fi
+
+    STATE=$(gh pr view $PR --json state --jq '.state')
+    if [ "$STATE" = "MERGED" ] || [ "$STATE" = "CLOSED" ]; then
+        echo "INFO:PR_$STATE"
+        exit 0
+    fi
+done
+echo "INFO:TIMEOUT"
 ```
+
+When the monitor exits, act on the alert:
+- **ALERT:CI_FAILURE** — fetch logs with `gh run view <run_id> --log-failed`, diagnose, fix, push
+- **ALERT:NEW_COMMENTS / ALERT:NEW_REVIEW** — fetch full comment, address substantive feedback, push
+- **ALERT:MERGE_CONFLICT** — `git fetch origin main && git merge origin/main`, resolve, push
+- **INFO:PR_MERGED** — report success
+- **INFO:TIMEOUT** — tell user the monitor timed out after ~2 hours, ask if they want to restart
 
 When notified, handle whichever condition triggered:
 

@@ -44,10 +44,9 @@ Invoke the `/cleanup` skill to fix code quality issues. Wait for completion.
 
 ### 5. Run Dev Checks
 
-Execute `./scripts/dev_checks.sh`.
+Execute `"$(git rev-parse --show-toplevel)/scripts/dev_checks.sh"`.
 
-- **Passes**: proceed.
-- **Formatting/lint failures**: fix with `./scripts/format_all.sh`, **commit and push** (`style: fix lint/formatting`), re-run.
+- **Passes**: if there are staged changes from auto-formatting, **commit and push** (`style: fix lint/formatting`), then proceed.
 - **Test failures**: investigate, fix, **commit and push**, re-run.
 
 ### 6. E2E Tests
@@ -55,7 +54,7 @@ Execute `./scripts/dev_checks.sh`.
 Check if the changes warrant e2e tests.
 
 If appropriate:
-- Check `docker compose ps` — offer `./scripts/quick_start.sh` if not running
+- Check `docker compose ps` — offer `"$(git rev-parse --show-toplevel)/scripts/quick_start.sh"` if not running
 - Run targeted e2e tests first, broader suite if they pass
 - Fix failures, **commit and push** fixes
 
@@ -63,12 +62,14 @@ If changes are purely internal with no API surface change, skip with a note.
 
 ## Phase 2: Ship
 
-### 7. Update CHANGELOG.md
+### 7. Add Changelog Fragment
 
-- Read `CHANGELOG.md` to match format
-- Get PR number: `gh pr view --json number --jq .number`
-- Propose an entry under the right section (Features / Fixes / Refactors / Chores & Docs) in "Unreleased"
-- Show to user for approval before writing
+If a changelog fragment doesn't already exist for this branch:
+
+1. Infer category from commit prefixes (`feat`→Features, `fix`→Fixes, `refactor`→Refactors, else→Chores & Docs)
+2. Get PR number: `gh pr view --json number --jq .number`
+3. Write `changelog.d/<branch-name>.md` with frontmatter (see `changelog.d/README.md`)
+4. Commit and push.
 
 ### 8. Clear Dev Files
 
@@ -123,9 +124,15 @@ For each comment:
 
 **If waiting for review**: tell the user and ask if they want to wait or come back later.
 
+### 14. Start Background Monitor
+
+After promoting the PR (Step 9) or after addressing feedback, launch the background PR monitor (same pattern as `/pr` Step 6). This monitors CI, comments, reviews, and merge conflicts every 90 seconds and alerts when action is needed.
+
+When an alert fires, loop back to Step 11 (CI failures) or Step 12 (comments/reviews) as appropriate.
+
 ## Phase 4: Close Out (after human merges)
 
-### 14. Wait for Merge
+### 15. Wait for Merge
 
 Monitor PR state. When `MERGED`:
 

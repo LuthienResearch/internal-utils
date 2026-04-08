@@ -60,7 +60,7 @@ Work through each item:
 
 Run full local validation:
 1. Unit tests: `uv run pytest tests/unit_tests/ -v`
-2. Dev checks: `./scripts/dev_checks.sh`
+2. Dev checks: `"$(git rev-parse --show-toplevel)/scripts/dev_checks.sh"`
 
 If dev_checks fixes formatting/lint, **commit and push** those separately (`style: fix lint/formatting`).
 
